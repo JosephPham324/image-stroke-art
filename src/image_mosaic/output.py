@@ -78,26 +78,58 @@ def evaluate_quality(
     )
 
 
+def resolve_output_path(path: Path | str, default_filename: str = "mosaic_output.png") -> Path:
+    """Sanitize path and resolve directory targets to a valid image file path.
+    
+    Handles Windows shell artifact where a trailing backslash escapes the quote (e.g. "path\\")
+    and defaults directory paths to a valid image filename.
+    """
+    raw = str(path).strip().strip('"\'')
+    p = Path(raw)
+
+    # Check if path is intended as a directory
+    if p.is_dir() or raw.endswith(("\\", "/")) or not p.suffix:
+        p = p / default_filename
+
+    valid_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+    if p.suffix.lower() not in valid_exts:
+        # If suffix is not a recognized image extension, default to .png
+        p = p.with_suffix(".png")
+
+    return p
+
+
 def save_output(
     image: Image.Image,
     output_path: Path,
     preview_path: Optional[Path] = None,
     preview_max_dim: int = 512,
-) -> None:
-    """Save rendered mosaic image and optional downscaled preview."""
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+) -> Path:
+    """Save rendered mosaic image and optional downscaled preview.
+    
+    Returns the resolved output Path.
+    """
+    resolved_output = resolve_output_path(output_path)
+    resolved_output.parent.mkdir(parents=True, exist_ok=True)
 
     # Save primary image
-    image.save(output_path)
+    try:
+        image.save(resolved_output)
+    except Exception as e:
+        raise IOError(f"Failed to save image to '{resolved_output}': {e}") from e
 
     # Save preview if requested
     if preview_path:
-        preview_path = Path(preview_path)
-        preview_path.parent.mkdir(parents=True, exist_ok=True)
+        resolved_preview = resolve_output_path(preview_path, default_filename="preview.png")
+        resolved_preview.parent.mkdir(parents=True, exist_ok=True)
         w, h = image.size
         scale = min(1.0, float(preview_max_dim) / max(w, h))
         pw = max(1, int(w * scale))
         ph = max(1, int(h * scale))
         preview = image.resize((pw, ph), Image.Resampling.BILINEAR)
-        preview.save(preview_path)
+        try:
+            preview.save(resolved_preview)
+        except Exception as e:
+            raise IOError(f"Failed to save preview image to '{resolved_preview}': {e}") from e
+
+    return resolved_output

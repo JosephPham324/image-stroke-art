@@ -44,3 +44,24 @@ def test_cli_full_execution_grid(synthetic_target: Path, synthetic_sources_dir: 
     assert result.exit_code == 0
     assert out_file.exists()
     assert "Diagnostics & Metrics" in result.output
+
+
+def test_cli_output_directory_with_trailing_slash_or_quote(
+    synthetic_target: Path, synthetic_sources_dir: Path, tmp_path: Path
+):
+    out_dir = tmp_path / "composition"
+    out_arg = f'{out_dir}\\"'
+    result = runner.invoke(
+        app,
+        [
+            "--target", str(synthetic_target),
+            "--sources", str(synthetic_sources_dir),
+            "--output", out_arg,
+            "--mode", "grid",
+            "--tile-size", "50",
+            "--seed", "42",
+        ],
+    )
+    assert result.exit_code == 0
+    expected_file = out_dir / "mosaic_output.png"
+    assert expected_file.exists()

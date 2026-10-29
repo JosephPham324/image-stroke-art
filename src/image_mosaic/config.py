@@ -83,6 +83,17 @@ class MosaicConfig:
     refinement_passes: int = 1
     verbose: bool = False
 
+    def __post_init__(self) -> None:
+        """Sanitize path attributes against Windows trailing quote / escape artifacts."""
+        if self.target_path is not None:
+            self.target_path = Path(str(self.target_path).strip().strip('"\''))
+        if self.sources_dir is not None:
+            self.sources_dir = Path(str(self.sources_dir).strip().strip('"\''))
+        if self.output_path is not None:
+            self.output_path = Path(str(self.output_path).strip().strip('"\''))
+        if self.preview_path is not None:
+            self.preview_path = Path(str(self.preview_path).strip().strip('"\''))
+
     def validate(self) -> None:
         """Validate configuration settings and raise ValueError on invalid values."""
         if not self.target_path.exists():

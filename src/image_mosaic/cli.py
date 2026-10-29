@@ -169,6 +169,13 @@ def generate(
     log_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
 
+    # Sanitize path inputs against Windows shell escaping artifacts (e.g. \" at end of string)
+    target = Path(str(target).strip().strip('"\''))
+    sources = Path(str(sources).strip().strip('"\''))
+    output = Path(str(output).strip().strip('"\''))
+    if preview is not None:
+        preview = Path(str(preview).strip().strip('"\''))
+
     # Construct configuration object
     config = MosaicConfig(
         target_path=target,
@@ -264,16 +271,20 @@ def generate(
     console.print("[green][OK][/green] Rendering and multi-scale refinement complete.")
 
     # Step 5: Save output & compute metrics
-    with console.status("[bold green]Saving output and evaluating metrics..."):
-        save_output(
-            rendered_image,
-            output_path=output,
-            preview_path=preview,
-        )
-        metrics = evaluate_quality(analyzer.target_image, rendered_image, plan)
+    try:
+        with console.status("[bold green]Saving output and evaluating metrics..."):
+            saved_output_path = save_output(
+                rendered_image,
+                output_path=output,
+                preview_path=preview,
+            )
+            metrics = evaluate_quality(analyzer.target_image, rendered_image, plan)
+    except Exception as err:
+        err_console.print(f"[bold red]Error saving output image:[/bold red] {err}")
+        raise typer.Exit(code=1)
 
     elapsed = round(time.time() - t0, 2)
-    console.print(f"[green][OK][/green] Output successfully saved to [bold]{output}[/bold] (in {elapsed}s).")
+    console.print(f"[green][OK][/green] Output successfully saved to [bold]{saved_output_path}[/bold] (in {elapsed}s).")
 
     # Display diagnostics table
     table = Table(title="Mosaic Diagnostics & Metrics")
