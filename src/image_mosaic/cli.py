@@ -29,6 +29,7 @@ from image_mosaic.stroke_planner import AdaptiveStrokePlanner, GridStrokePlanner
 app = typer.Typer(
     help="Reconstruct target paintings using collections of source images as visual brushstrokes.",
     add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 console = Console()
 err_console = Console(stderr=True)
