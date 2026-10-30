@@ -31,6 +31,19 @@ app = typer.Typer(
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
+
+if sys.platform == "win32":
+    if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 console = Console()
 err_console = Console(stderr=True)
 
@@ -302,6 +315,9 @@ def generate(
 
 
 def main() -> None:
+    """CLI entrypoint that permits both direct options and an optional 'generate' command."""
+    if len(sys.argv) > 1 and sys.argv[1] == "generate":
+        sys.argv.pop(1)
     app()
 
 

@@ -55,6 +55,7 @@ class ImageLibrary:
         self._descriptors_matrix: Optional[np.ndarray] = None
         self._path_to_index: Dict[Path, int] = {}
         self._cache_thumbnails: Dict[int, Image.Image] = {}
+        self._cache_pil: Dict[int, Image.Image] = {}
 
     @property
     def count(self) -> int:
@@ -92,6 +93,7 @@ class ImageLibrary:
         self.images = []
         self._descriptors_matrix = None
         self._cache_thumbnails.clear()
+        self._cache_pil.clear()
 
         for path in sorted(all_candidate_files):
             try:
@@ -163,27 +165,25 @@ class ImageLibrary:
     def get_source_pil(self, index: int, target_size: Optional[Tuple[int, int]] = None) -> Image.Image:
         """Retrieve a source image as PIL Image.
         
-        Loads on demand and resizes to target_size if requested.
-        Preserves alpha channel if present.
+        Loads and caches base image in memory for high-throughput rendering.
+        Resizes to target_size if requested. Preserves alpha channel if present.
         """
         if index < 0 or index >= len(self.images):
             raise IndexError(f"Source index {index} out of range (total: {len(self.images)})")
 
-        entry = self.images[index]
-        with Image.open(entry.path) as img:
-            img = ImageOps.exif_transpose(img)
-            if entry.has_alpha:
-                img = img.convert("RGBA")
-            else:
-                img = img.convert("RGB")
+        if index not in self._cache_pil:
+            entry = self.images[index]
+            with Image.open(entry.path) as img:
+                img = ImageOps.exif_transpose(img)
+                if entry.has_alpha:
+                    self._cache_pil[index] = img.convert("RGBA")
+                else:
+                    self._cache_pil[index] = img.convert("RGB")
 
-            if target_size is not None:
-                img = img.resize(target_size, Image.Resampling.BILINEAR)
-            else:
-                # Make a standalone copy so context manager closure does not invalidate
-                img = img.copy()
-
-        return img
+        base_img = self._cache_pil[index]
+        if target_size is not None:
+            return base_img.resize(target_size, Image.Resampling.BILINEAR)
+        return base_img.copy()
 
     @staticmethod
     def _compute_file_hash(path: Path, block_size: int = 65536) -> str:
